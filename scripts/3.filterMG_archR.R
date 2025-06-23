@@ -1,10 +1,9 @@
-.libPaths("~/cEpiNet/libs/R_4.4.0_libs/")
+.libPaths("/projectnb/cepinet/libs/R_4.4.0_libs")
 library(ArchR)
 library(pheatmap)
 
 addArchRThreads(threads = 16)
 addArchRGenome("hg38") 
-
 
 
 ########marker files

@@ -1,8 +1,8 @@
-# 🧠 Microglial State Transition Integration Pipeline
+# Microglial State Transition Integration Pipeline
 
 A pipeline for integrating snATAC-seq and snRNA-seq data to uncover regulatory mechanisms underlying microglial state transitions in Alzheimer’s disease.
 
-## 📌 Project Overview
+## Project Overview
 
 Microglia, the brain's resident immune cells, adopt diverse transcriptional states during aging and Alzheimer's disease (AD) progression. This project aims to investigate the epigenomic regulation underlying these transitions by:
 
@@ -11,7 +11,7 @@ Microglia, the brain's resident immune cells, adopt diverse transcriptional stat
 - Linking transcription factors (TFs), cis-regulatory elements (CREs), and genes via peak-to-gene co-accessibility
 - Visualizing UMAP plots, differential peaks, and regulatory heatmaps to interpret regulatory programs
 
-## 🧰 Tools and Technologies
+## Tools and Technologies
 
 - **ArchR** for snATAC-seq preprocessing, LSI/Harmony integration, clustering, and gene score analysis
 - **Seurat** for snRNA-seq processing
@@ -19,7 +19,7 @@ Microglia, the brain's resident immune cells, adopt diverse transcriptional stat
 - **Fisher’s Exact Test** for marker gene overlap heatmaps
 - **GO enrichment** for functional annotation of ATAC-seq marker genes
 
-## 🗂️ Related References
+## Related References
 
 - Sun et al., *Cell*, 2023 – snRNA-seq of human microglia in AD  
 - Xiong et al., *Cell*, 2023 – Epigenomic analysis and TF–CRE–gene linking  

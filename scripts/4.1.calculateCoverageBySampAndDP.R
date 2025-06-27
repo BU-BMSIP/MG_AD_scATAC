@@ -1,7 +1,7 @@
 # integration and peak calling
 # and generate pseudobulk signal for differential peak calling for sample groups
 
-.libPaths("~/cEpiNet/libs/R_4.4.0_libs/")
+.libPaths("/projectnb/cepinet/libs/R_4.4.0_libs")
 library(ArchR)
 library(pheatmap)
 library(GenomicRanges)

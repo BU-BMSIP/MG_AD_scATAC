@@ -1,9 +1,10 @@
+# Load required packages
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(ggplot2)
 library(dplyr)
 
-# Load your marker gene list
+# Load marker gene list
 markerList <- readRDS("brain.microglia.filter/markerList.rds")
 filtered_markerList <- Filter(function(x) !is.null(x) && nrow(x) > 0, markerList)
 
@@ -21,22 +22,27 @@ top300 <- combined_df %>%
   head(300)
 
 # Convert gene symbols to Entrez IDs
-gene.df <- bitr(top300$name, fromType = "SYMBOL",
-                toType = "ENTREZID",
-                OrgDb = org.Hs.eg.db)
+gene.df <- bitr(
+  top300$name,
+  fromType = "SYMBOL",
+  toType   = "ENTREZID",
+  OrgDb    = org.Hs.eg.db
+)
 
-# Run GO enrichment on Biological Process (BP)
-ego <- enrichGO(gene = gene.df$ENTREZID,
-                OrgDb = org.Hs.eg.db,
-                ont = "BP",
-                pvalueCutoff = 0.1,
-                qvalueCutoff = 0.2,
-                readable = TRUE)
+# Run GO enrichment analysis (Biological Process)
+ego <- enrichGO(
+  gene          = gene.df$ENTREZID,
+  OrgDb         = org.Hs.eg.db,
+  ont           = "BP",
+  pvalueCutoff  = 0.1,
+  qvalueCutoff  = 0.2,
+  readable      = TRUE
+)
 
-# Convert to data.frame for plotting
+# Convert result to data.frame
 ego_df <- as.data.frame(ego)
 
-# Select top 20 terms based on adjusted p-value
+# Select top 20 terms by adjusted p-value
 top_terms <- ego_df %>%
   arrange(p.adjust) %>%
   head(20)
@@ -45,11 +51,13 @@ top_terms <- ego_df %>%
 p <- ggplot(top_terms, aes(x = GeneRatio, y = reorder(Description, GeneRatio))) +
   geom_point(aes(size = Count, color = p.adjust)) +
   scale_color_gradient(low = "red", high = "blue", trans = "log10") +
-  labs(title = "GO Enrichment (Top 300 Marker Genes)",
-       x = "Gene Ratio",
-       y = "GO Term",
-       color = "Adjusted p-value",
-       size = "Gene Count") +
+  labs(
+    title  = "GO Enrichment (Top 300 Marker Genes)",
+    x      = "Gene Ratio",
+    y      = "GO Term",
+    color  = "Adjusted p-value",
+    size   = "Gene Count"
+  ) +
   theme_minimal(base_size = 12)
 
 # Save the plot

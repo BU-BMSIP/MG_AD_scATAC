@@ -1,35 +1,46 @@
+# ===============================================
+# GO Enrichment Analysis for Top 300 Marker Genes
+# ===============================================
+
 # Load required packages
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(ggplot2)
 library(dplyr)
 
-# Load marker gene list
+# 1. Load and filter marker gene list
 markerList <- readRDS("brain.microglia.filter/markerList.rds")
 filtered_markerList <- Filter(function(x) !is.null(x) && nrow(x) > 0, markerList)
 
-# Combine all cluster markers into one data.frame
-combined_df <- do.call(rbind, lapply(names(filtered_markerList), function(clu) {
+# 2. Combine all clusters into one data.frame
+combined_df <- bind_rows(lapply(names(filtered_markerList), function(clu) {
   df <- filtered_markerList[[clu]]
   df$cluster <- clu
-  return(df)
+  df
 })) %>% as.data.frame()
 
-# Select top 300 genes ranked by Log2FC
+# 3. Select top 300 marker genes by Log2FC
 top300 <- combined_df %>%
   arrange(desc(Log2FC)) %>%
   distinct(name, .keep_all = TRUE) %>%
-  head(300)
+  slice_head(n = 300)
 
-# Convert gene symbols to Entrez IDs
-gene.df <- bitr(
-  top300$name,
-  fromType = "SYMBOL",
-  toType   = "ENTREZID",
-  OrgDb    = org.Hs.eg.db
-)
+# 4. Convert gene symbols to Entrez IDs
+gene.df <- tryCatch({
+  bitr(
+    top300$name,
+    fromType = "SYMBOL",
+    toType   = "ENTREZID",
+    OrgDb    = org.Hs.eg.db
+  )
+}, error = function(e) {
+  stop("Gene ID conversion failed: ", e$message)
+})
 
-# Run GO enrichment analysis (Biological Process)
+# Filter to keep only successfully converted genes
+valid_genes <- top300 %>% filter(name %in% gene.df$SYMBOL)
+
+# 5. GO enrichment (Biological Process)
 ego <- enrichGO(
   gene          = gene.df$ENTREZID,
   OrgDb         = org.Hs.eg.db,
@@ -39,17 +50,16 @@ ego <- enrichGO(
   readable      = TRUE
 )
 
-# Convert result to data.frame
+# 6. Process and filter GO result
 ego_df <- as.data.frame(ego)
 
-# Select top 20 terms by adjusted p-value
 top_terms <- ego_df %>%
   arrange(p.adjust) %>%
-  head(20)
+  slice_head(n = 20)
 
-# Plot bubble chart
+# 7. Bubble chart plot
 p <- ggplot(top_terms, aes(x = GeneRatio, y = reorder(Description, GeneRatio))) +
-  geom_point(aes(size = Count, color = p.adjust)) +
+  geom_point(aes(size = Count, color = p.adjust), alpha = 0.8) +
   scale_color_gradient(low = "red", high = "blue", trans = "log10") +
   labs(
     title  = "GO Enrichment (Top 300 Marker Genes)",
@@ -58,7 +68,11 @@ p <- ggplot(top_terms, aes(x = GeneRatio, y = reorder(Description, GeneRatio))) 
     color  = "Adjusted p-value",
     size   = "Gene Count"
   ) +
-  theme_minimal(base_size = 12)
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.y = element_text(size = 11),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
 
-# Save the plot
+# 8. Save plot
 ggsave("top300_marker_gene_GO_bubble.pdf", plot = p, width = 8, height = 6)

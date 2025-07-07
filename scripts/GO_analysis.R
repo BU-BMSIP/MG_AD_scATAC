@@ -1,88 +1,92 @@
-# ===============================================
-# GO Biological Process Annotation Per Cluster
-# ===============================================
+# Setting up environment ===================================================
 
-# Load required packages
+# Clean environment
+rm(list = ls(all.names = TRUE)) # Clear all objects, including hidden ones
+gc() # Free up memory and report usage
+options(max.print = .Machine$integer.max, scipen = 999, stringsAsFactors = F, dplyr.summarise.inform = F) # Avoid truncated output and scientific notation
+
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(enrichplot)
 library(ggplot2)
+library(dplyr)
 
-# Load marker gene list (each element is a character vector of gene symbols)
-marker_list <- readRDS("atac_markers_list.rds")
+# Load markerList
+markerList <- readRDS("brain.microglia.filter/markerList_7.2.rds")
 
-# Convert all gene symbols to uppercase
-marker_list <- lapply(marker_list, toupper)
+# Convert all gene names to uppercase
+markerList <- lapply(markerList, function(df) {
+  df$name <- toupper(df$name)
+  df
+})
 
-# Initialize list to store enrichment results
-go_results <- list()
+# Create directory to save results
+dir.create("PEA/Results", recursive = TRUE, showWarnings = FALSE)
 
-# Run GO enrichment for each cluster
-for (clu in names(marker_list)) {
-  message("Processing cluster: ", clu)
+# Define background gene set and convert to ENTREZID
+background_genes <- unique(unlist(lapply(markerList, function(df) df$name)))
+background_entrez <- bitr(background_genes,
+                          fromType = "SYMBOL",
+                          toType = "ENTREZID",
+                          OrgDb = org.Hs.eg.db)
 
-  genes <- marker_list[[clu]]
+mapped_genes <- background_entrez$SYMBOL
+unmapped_genes <- setdiff(background_genes, mapped_genes)
+cat("Unmapped background genes:", length(unmapped_genes), "\n")
+
+# Loop through each cluster
+for (cluster in names(markerList)) {
   
-  # Convert gene symbols to Entrez IDs
-  gene_df <- tryCatch({
-    bitr(genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
-  }, error = function(e) {
-    warning("Conversion failed for cluster ", clu, ": ", e$message)
-    return(NULL)
-  })
-
-  # If valid conversion results, perform GO enrichment
-  if (!is.null(gene_df) && nrow(gene_df) > 0) {
-    ego <- enrichGO(
-      gene          = gene_df$ENTREZID,
-      OrgDb         = org.Hs.eg.db,
-      ont           = "BP",           # Biological Process
-      pAdjustMethod = "BH",
-      pvalueCutoff  = 0.05,
-      qvalueCutoff  = 0.2,
-      readable      = TRUE
-    )
-
-    go_results[[clu]] <- ego
+  cat("\nProcessing cluster:", cluster, "\n")
+  
+  # Top 100 marker genes
+  top_genes <- head(markerList[[cluster]]$name, 100)
+  
+  if (length(top_genes) == 0 || all(is.na(top_genes))) {
+    cat("No genes available for cluster", cluster, "- skipping.\n")
+    next
+  }
+  
+  # Convert SYMBOL to ENTREZID
+  gene_entrez <- bitr(top_genes,
+                      fromType = "SYMBOL",
+                      toType = "ENTREZID",
+                      OrgDb = org.Hs.eg.db)
+  
+  if (nrow(gene_entrez) == 0) {
+    cat("No valid Entrez IDs for cluster", cluster, "- skipping.\n")
+    next
+  }
+  
+  # GO BP enrichment analysis
+  ego <- enrichGO(
+    gene = gene_entrez$ENTREZID,
+    universe = background_entrez$ENTREZID,
+    OrgDb = org.Hs.eg.db,
+    ont = "BP",
+    keyType = "ENTREZID",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 1,
+    qvalueCutoff = 1,
+    readable = TRUE
+  )
+  
+  # Simplify redundant GO terms
+  ego_simplified <- simplify(ego, cutoff = 0.7, by = "p.adjust", select_fun = min)
+  
+  # Plotting logic: use simplified result if available, otherwise use original
+  if (!is.null(ego_simplified) && nrow(ego_simplified) > 0) {
+    plot_obj <- dotplot(ego_simplified, showCategory = 20) + ggtitle(paste("Cluster", cluster, "- GO BP"))
+  } else if (!is.null(ego) && nrow(ego) > 0) {
+    plot_obj <- dotplot(ego, showCategory = 20) + ggtitle(paste("Cluster", cluster, "- GO BP (unsimplified)"))
   } else {
-    message("No valid genes for cluster: ", clu)
-    go_results[[clu]] <- NULL
+    cat("No enriched GO BP terms for cluster", cluster, "- skipping plot.\n")
+    next
   }
+  
+  # Save plot
+  ggsave(paste0("PEA/Results/", cluster, "_GO_BP_dotplot.png"), plot = plot_obj, width = 10, height = 8)
+  
+  # Clean up variables to prevent contamination in the next loop
+  rm(ego, ego_simplified, gene_entrez, plot_obj)
 }
-
-# Create output folder if not exists
-if (!dir.exists("GO_plots")) dir.create("GO_plots")
-
-# Plot top 10 enriched GO:BP terms per cluster
-for (clu in names(go_results)) {
-  ego <- go_results[[clu]]
-
-  if (!is.null(ego) && nrow(ego) > 0) {
-    p <- barplot(ego, showCategory = 10, title = paste("Cluster", clu, "GO:BP"))
-
-    ggsave(
-      filename = file.path("GO_plots", paste0("Cluster_", clu, "_GO_BP.pdf")),
-      plot     = p,
-      width    = 8,
-      height   = 6
-    )
-  }
-}
-
-# Save GO term tables per cluster
-for (clu in names(go_results)) {
-  ego <- go_results[[clu]]
-
-  if (!is.null(ego) && nrow(ego) > 0) {
-    write.table(
-      as.data.frame(ego),
-      file      = file.path("GO_plots", paste0("Cluster_", clu, "_GO_BP.tsv")),
-      sep       = "\t",
-      quote     = FALSE,
-      row.names = FALSE
-    )
-  }
-}
-
-# Save all GO enrichment results
-saveRDS(go_results, file = "GO_results_rna.rds")

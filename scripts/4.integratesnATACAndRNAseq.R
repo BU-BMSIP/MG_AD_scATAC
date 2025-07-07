@@ -23,17 +23,18 @@ brain2 <- readRDS(file.in.brain2.rds)
 # Integration
 if (!file.exists(file.ou.brain3.rds)) {
   brain3 <- addGeneIntegrationMatrix(
-    ArchRProj = brain2,
-    useMatrix = "GeneScoreMatrix",
-    matrixName = "GeneIntegrationMatrix",
-    reducedDims = "IterativeLSI",
-    seRNA = brain.rna,
-    addToArrow = FALSE,
-    groupRNA = "groupRNA",
-    nameCell = "predictedCell_Un",
-    nameGroup = "predictedGroup_Un",
-    nameScore = "predictedScore_Un"
-  )
+  ArchRProj = brain2,
+  useMatrix = "GeneScoreMatrix",
+  matrixName = "GeneIntegrationMatrix",
+  reducedDims = "IterativeLSI",
+  seRNA = brain.rna,
+  addToArrow = FALSE,
+  groupRNA = "groupRNA",
+  nameCell = "predictedCell_Un",
+  nameGroup = "predictedGroup_Un",
+  nameScore = "predictedScore_Un"
+)
+
 
   saveRDS(brain3, file.ou.brain3.rds)
   

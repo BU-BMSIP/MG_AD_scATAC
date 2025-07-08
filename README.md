@@ -13,11 +13,59 @@ Microglia, the brain's resident immune cells, adopt diverse transcriptional stat
 
 ## Tools and Technologies
 
-- **ArchR** for snATAC-seq preprocessing, LSI/Harmony integration, clustering, and gene score analysis
-- **Seurat** for snRNA-seq processing
-- **MACS2** for peak calling
-- **Fisher’s Exact Test** for marker gene overlap heatmaps
-- **GO enrichment** for functional annotation of ATAC-seq marker genes
+| Tool         | Purpose                                                   |
+|--------------|-----------------------------------------------------------|
+| **ArchR**    | snATAC-seq preprocessing, LSI/Harmony integration, clustering |
+| **Seurat**   | snRNA-seq clustering and marker detection                 |
+| **clusterProfiler** | GO term enrichment and annotation of marker genes        |
+| **ggplot2**  | Custom visualizations (bubble plots, heatmaps, UMAPs)     |
+| **Fisher's Exact Test** | Marker gene overlap between ATAC and RNA clusters    |
+| **MACS2**    | Peak calling for ATAC data (external preprocessing)       |
+
+
+## Analysis Workflow
+
+### 1. **Preprocessing & Clustering**
+- Load raw ATAC ArchR project
+- Filter out suspected doublets (e.g., C1/C8)
+- Apply Iterative LSI and Harmony batch correction
+- Perform clustering on Harmony-reduced dimensions
+- Generate UMAPs for sample, region, cluster visualization
+
+### 2. **Marker Gene Analysis**
+- Use `getMarkerFeatures()` on the GeneScoreMatrix
+- Apply relaxed thresholds for sparse clusters:
+  - Default: `FDR <= 0.01 & Log2FC >= 1.25`
+  - Relaxed: `FDR <= 0.1 & Log2FC >= 0.5`
+- Save `markerList.rds` and print the number of markers per cluster
+
+### 3. **Gene Enrichment Analysis**
+- Combine all markers, rank by `Log2FC`, select top 100 genes
+- Convert to Entrez ID using `bitr()`
+- Run `enrichGO()` (ontology: BP)
+- Visualize top terms using ggplot2 bubble plot:
+  - X-axis: GeneRatio
+  - Y-axis: GO term
+  - Size: Gene count
+  - Color: Adjusted p-value (log scale)
+
+### 4. **ATAC-RNA Marker Overlap**
+- Use RNA marker list from Seurat clustering
+- Perform Fisher’s exact test across ATAC vs RNA clusters
+- Generate odds ratio heatmap with significance asterisks
+- Standardize background gene set for fair comparison
+
+### 5. **Modality Alignment**
+- Calculate proportion of nearest neighbors from RNA to ATAC clusters (C1–C5)
+- Evaluate modality concordance after Harmony integration
+
+### 6. **Visualization Outputs**
+- Gene score heatmaps (top marker genes, microglia markers)
+- UMAP gene score plots (with/without imputation)
+- Browser track plots of selected genes
+- GO enrichment bubble chart
+- Overlap heatmap (ATAC vs RNA)
+
 
 ## Related References
 

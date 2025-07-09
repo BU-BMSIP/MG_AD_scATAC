@@ -41,3 +41,12 @@ ctcfExpr <- getTrajectory(
 )
 
 plotTrajectoryHeatmap(ctcfExpr, labelMarkers = "CTCF")
+
+# 6. Add Peak-to-Gene links to connect CREs with target genes (if not done yet)
+brain3 <- addPeak2GeneLinks(
+  ArchRProj = brain3,
+  reducedDims = "IterativeLSI"          # Use LSI-reduced dimensions for linking
+)
+
+# 7. Retrieve peak-to-gene links for downstream analysis (e.g., focusing on CTCF motifs)
+peak2gene <- getPeak2GeneLinks(brain3)

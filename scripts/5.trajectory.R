@@ -31,3 +31,13 @@ plotTrajectory(
   name = "CTCF",               # TF motif to visualize
   useMatrix = "MotifMatrix"    # Use chromVAR deviation scores
 )
+
+# 5. Extract and plot CTCF gene expression along the trajectory from integrated RNA
+ctcfExpr <- getTrajectory(
+  ArchRProj = brain3,
+  name = "MicrogliaTrajectory",
+  useMatrix = "GeneIntegrationMatrix",  # RNA expression matrix integrated into ArchR
+  log2Norm = TRUE                       # Log2 normalization of expression
+)
+
+plotTrajectoryHeatmap(ctcfExpr, labelMarkers = "CTCF")

@@ -1,45 +1,54 @@
-# Setting up environment ===================================================
-
-# Clean environment
-rm(list = ls(all.names = TRUE)) # Clear all objects, including hidden ones
-gc() # Free up memory and report usage
-options(max.print = .Machine$integer.max, scipen = 999, stringsAsFactors = F, dplyr.summarise.inform = F) # Avoid truncated output and scientific notation
-
+library(ArchR)
 library(clusterProfiler)
 library(org.Hs.eg.db)
-library(enrichplot)
 library(ggplot2)
-library(dplyr)
+library(enrichplot)
 
-# Load markerList
-markerList <- readRDS("brain.microglia.filter/markerList_7.2.rds")
+detach_all_libs <- function() {
+  loaded_pkgs <- setdiff(
+    grep("^package:", search(), value = TRUE),
+    paste0("package:", c("base", "stats", "graphics", "grDevices", "utils", "datasets", "methods", "tools"))
+  )
+  for (pkg in loaded_pkgs) {
+    try(detach(pkg, character.only = TRUE, unload = TRUE), silent = TRUE)
+  }
+  message("All non-base packages detached.")
+}
 
-# Convert all gene names to uppercase
+
+markersGS <- readRDS("brain.microglia.filter/markersGS_7.2.rds")
+markerList <- readRDS("brain.microglia.filter/markerList_7.10.rds")
+
+# 所有基因名转为大写
 markerList <- lapply(markerList, function(df) {
   df$name <- toupper(df$name)
   df
 })
 
-# Create directory to save results
-dir.create("PEA/Results", recursive = TRUE, showWarnings = FALSE)
+# 创建结果保存目录
+dir.create("PEA_7.11/Results", recursive = TRUE, showWarnings = FALSE)
 
-# Define background gene set and convert to ENTREZID
-background_genes <- unique(unlist(lapply(markerList, function(df) df$name)))
+# 使用 MarkerGS 结果中的所有基因作为背景集
+background_genes <- rowData(markersGS)$name
+background_genes <- toupper(background_genes)
+
+# 转换为 ENTREZID
 background_entrez <- bitr(background_genes,
                           fromType = "SYMBOL",
                           toType = "ENTREZID",
                           OrgDb = org.Hs.eg.db)
 
+# 可选：输出无法映射的基因数
 mapped_genes <- background_entrez$SYMBOL
 unmapped_genes <- setdiff(background_genes, mapped_genes)
 cat("Unmapped background genes:", length(unmapped_genes), "\n")
 
-# Loop through each cluster
+# 2️⃣ 遍历每个 cluster 做 GO 富集分析
 for (cluster in names(markerList)) {
   
   cat("\nProcessing cluster:", cluster, "\n")
   
-  # Top 100 marker genes
+  # 获取 top 100 marker gene 名称
   top_genes <- head(markerList[[cluster]]$name, 100)
   
   if (length(top_genes) == 0 || all(is.na(top_genes))) {
@@ -47,7 +56,7 @@ for (cluster in names(markerList)) {
     next
   }
   
-  # Convert SYMBOL to ENTREZID
+  # SYMBOL to ENTREZID
   gene_entrez <- bitr(top_genes,
                       fromType = "SYMBOL",
                       toType = "ENTREZID",
@@ -71,22 +80,25 @@ for (cluster in names(markerList)) {
     readable = TRUE
   )
   
-  # Simplify redundant GO terms
+  # 简化冗余 GO term
   ego_simplified <- simplify(ego, cutoff = 0.7, by = "p.adjust", select_fun = min)
   
-  # Plotting logic: use simplified result if available, otherwise use original
+  # 画图逻辑，简化后没结果则用原始结果
   if (!is.null(ego_simplified) && nrow(ego_simplified) > 0) {
-    plot_obj <- dotplot(ego_simplified, showCategory = 20) + ggtitle(paste("Cluster", cluster, "- GO BP"))
+    plot_obj <- dotplot(ego_simplified, showCategory = 20) + 
+      ggtitle(paste("Cluster", cluster, "- GO BP"))
   } else if (!is.null(ego) && nrow(ego) > 0) {
-    plot_obj <- dotplot(ego, showCategory = 20) + ggtitle(paste("Cluster", cluster, "- GO BP (unsimplified)"))
+    plot_obj <- dotplot(ego, showCategory = 20) + 
+      ggtitle(paste("Cluster", cluster, "- GO BP (unsimplified)"))
   } else {
     cat("No enriched GO BP terms for cluster", cluster, "- skipping plot.\n")
     next
   }
   
-  # Save plot
-  ggsave(paste0("PEA/Results/", cluster, "_GO_BP_dotplot.png"), plot = plot_obj, width = 10, height = 8)
+  # 保存图片
+  ggsave(paste0("PEA_7.11/Results/", cluster, "_GO_BP_dotplot.png"), 
+         plot = plot_obj, width = 10, height = 8)
   
-  # Clean up variables to prevent contamination in the next loop
+  # 清理变量，防止污染
   rm(ego, ego_simplified, gene_entrez, plot_obj)
 }

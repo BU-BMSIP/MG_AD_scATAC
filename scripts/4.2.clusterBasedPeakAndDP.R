@@ -60,24 +60,3 @@ saveRDS(
   brain4.pseudobulk.mat,
   file = 'brain.microglia.filter/brain4.integRNA.filt.pseudoBulkBySamp.peakMat.rds'
 )
-
-# # Optional: Peak overlap with consensus peak set
-# peaks.consensus <- readRDS('brain.microglia.filter/getPeakSet.rds')
-# peaks.pseudoBulk <- GRanges(
-#   seqnames = brain4.pseudobulk.mat@elementMetadata$seqnames,
-#   ranges = IRanges(
-#     start = brain4.pseudobulk.mat@elementMetadata$start,
-#     end   = brain4.pseudobulk.mat@elementMetadata$end
-#   )
-# )
-# pks.ovlp <- findOverlaps(peaks.pseudoBulk, peaks.consensus)
-
-# # Read external metadata
-# meta.df <- read.table(file.in.430.meta, sep = "\t", header = TRUE, row.names = 1)
-
-# # DESeq2 pipeline (commented out)
-# dds <- DESeqDataSet(brain4.pseudobulk.mat, design = ~ 1)  # use real design formula here
-# dds <- estimateSizeFactors(dds)
-# dds <- estimateDispersions(dds)
-# dds <- DESeq(dds)
-# res <- results(dds)

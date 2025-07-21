@@ -42,6 +42,13 @@ Each file in this directory corresponds to a specific module of the analytical p
 - **Visualizations**: bar plots, dot plots, and bubble charts.
 - Helps interpret cluster-specific biological processes (e.g., immune activation, synapse pruning).
 
+### 6. Trajectory Inference of Microglial State Transitions
+- **Scripts**: `08_trajectory_analysis.R`
+- Constructs pseudotime trajectories using RNA and/or ATAC data to model dynamic microglial transitions.
+- Identifies key genes and regulatory features that vary along pseudotime.
+- **Visualizations**: trajectory plots, heatmaps of dynamic genes, and branch-specific marker analysis.
+- Supports understanding of progressive cell state changes during aging or disease.
+
 ---
 
 ## Reproducibility

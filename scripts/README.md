@@ -1,20 +1,73 @@
-# Project scripts
+# Project Scripts
 
-All project scripts are in this directory
+This directory contains all scripts used in the analysis of microglial state transitions using single-nucleus multiomic data. The scripts are organized to reflect the computational pipeline described in the original publication.
 
-orignal paper https://www.cell.com/cell/fulltext/S0092-8674(23)00971-6
+### Original Paper  
+**Sun, Victor et al., Cell, 2023**  
+[Link to paper](https://www.cell.com/cell/fulltext/S0092-8674(23)00971-6)
 
-download from https://personal.broadinstitute.org/cboix/sun_victor_et_al_data/
+### Data Download  
+Raw and processed data are available from:  
+🔗 [https://personal.broadinstitute.org/cboix/sun_victor_et_al_data/](https://personal.broadinstitute.org/cboix/sun_victor_et_al_data/)
 
-Fragments from Na direclty
+- ATAC fragment files were obtained directly from the Na et al. dataset.  
+- Peak-to-gene linking results were extracted from the supplementary materials of the Cell publication:  
+  [Supplementary Data](https://www.cell.com/cell/fulltext/S0092-8674(23)00971-6#mmc1)
 
-peak-to-gene Linking from supplementary table, https://www.cell.com/cell/fulltext/S0092-8674(23)00971-6?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS0092867423009716%3Fshowall%3Dtrue#mmc1
+---
 
+## Methods Overview
 
-## method
+### ATAC-seq Data Processing
 
-We processed snATAC-seq data using the same computational pipeline as Xiong et al.21 accompanied manuscript. Specifically, we firstly generated raw data of FASTQ for each sample by demultiplexing the reads with cellranger-atac software(v1.1.0),70 and then mapped the reads to human reference genome version GRCh38 using “cellranger-atac count” to obtain the fragment file for each sample. We processed the snATAC-seq data using ArchR (v1.0.1).57 We removed the potential doublets using the “filterDoublets” function in ArchR. We kept the cells with TSS enrichment more than 6 and the number of fragments between 1000 and 100,000 for further analysis. We performed Iterative LSI dimension reduction and clustering using the matrix of 500 bp tile-based, with parameters “iterations = 4, resolution = 0.2, varFeat = 50000”. The UMAP was used to visualize cell embedding for all cells. We generated the gene score matrix using ArchR, and annotated the cell type for each cluster based on the gene score of well-known markers in the brain.11 We integrated the clusters that were annotated as microglia/immune cells for further analysis.
+We followed the computational workflow used in the accompanying manuscript by **Xiong et al.**:
 
+1. **Preprocessing**
+   - FASTQ files were generated via demultiplexing using `cellranger-atac` v1.1.0.
+   - Reads were aligned to the GRCh38 human genome with `cellranger-atac count` to produce fragment files.
 
+2. **Quality Control & Filtering**
+   - Analysis was performed using **ArchR** v1.0.1.
+   - Doublets were filtered using `filterDoublets`.
+   - Cells were retained if they met both:
+     - TSS enrichment score > 6
+     - Number of fragments between 1,000 and 100,000
 
-For the full datasets with all cell types (2.8 million cells), we first annotated the cell type for each cluster based on three widely-used canonical markers of major cell types in the brain (including excitatory and inhibitory neurons, astrocytes, oligodendrocytes, OPCs, microglia and vascular cells)11 and a list of markers for immune cells.11,71 We also tested the enrichment of a large set of markers72 in highly expressed genes for each cluster to confirm the annotation based on several marker genes. We next calculated the cell type scores (i.e., astrocyte, oligodendrocyte, microglia, etc) for each cell, which were represented by the average expression of a group of markers for each cell type.72 The cells were then selected as microglia/immune cells for further integrative analysis if and only if (1) the clusters that the cells belong to were annotated as microglia/immune cells; and (2) the cells had the highest score for microglia/immune cells, and 3) the score for microglia/immune cells was 2-fold higher than the second highest score. For the selected microglia/immune cells, we followed the same pipeline to perform dimensional reduction and clustering with the same parameters as full datasets. We used the Wilcoxon rank-sum test in Seurat with customized parameters (min.pct = 0.25, logfc.threshold = 0.25) to identify highly expressed genes for each cluster compared to all cells from other clusters.
+3. **Dimensionality Reduction & Clustering**
+   - Iterative LSI was performed on 500 bp tiles with parameters:
+     - `iterations = 4`
+     - `resolution = 0.2`
+     - `varFeatures = 50,000`
+   - UMAP was used for visualization.
+   - Gene scores were computed using ArchR.
+   - Cell types were annotated using well-known brain markers.
+
+4. **Microglia Subsetting**
+   - Only clusters annotated as **microglia/immune cells** were retained for downstream analysis.
+
+---
+
+### Full Dataset
+
+1. **Cluster Annotation**
+   - Cell clusters were annotated using canonical markers for major brain cell types:
+     - Excitatory/Inhibitory neurons
+     - Astrocytes
+     - Oligodendrocytes
+     - OPCs
+     - Microglia
+     - Vascular cells
+   - Annotation was validated using enrichment analysis of a broader set of literature-derived markers.
+
+2. **Microglia/Immune Cell Selection**
+   A cell was retained as microglia/immune if **all three** of the following were true:
+   - Belonged to a cluster annotated as microglia/immune;
+   - Had the highest cell type score for microglia/immune;
+   - Microglia/immune score was **≥ 2×** higher than the second highest score.
+
+3. **Downstream Processing**
+   - Selected microglia/immune cells were re-processed using the same dimensionality reduction and clustering pipeline.
+   - Differentially expressed genes were identified using **Wilcoxon rank-sum test** in Seurat with:
+     - `min.pct = 0.25`
+     - `logfc.threshold = 0.25`
+=

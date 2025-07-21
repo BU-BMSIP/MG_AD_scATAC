@@ -1,4 +1,3 @@
-.libPaths("/projectnb/cepinet/libs/R_4.4.0_libs")
 library(ArchR)
 
 # 1. Build trajectory using RNA-predicted cell types as ordered states

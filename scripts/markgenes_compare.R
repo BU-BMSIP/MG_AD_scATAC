@@ -1,6 +1,6 @@
 # =================== Step 0: Setup Environment ===================
-rm(list = ls(all.names = TRUE))  # 清除所有变量
-gc()  # 清理内存
+rm(list = ls(all.names = TRUE))  # Clear all variables
+gc()  # Free up memory
 options(max.print = .Machine$integer.max, scipen = 999, stringsAsFactors = FALSE, dplyr.summarise.inform = FALSE)
 
 library(dplyr)
@@ -11,7 +11,7 @@ library(RColorBrewer)
 atac_markers_raw <- readRDS("/projectnb/cepinet/users/vhe/Na_Cell_2023_MG/brain.microglia.filter/markerList_7.10.rds")
 rna_markers      <- readRDS("/projectnb/cepinet/users/vhe/Na_Cell_2023_MG/6.20_meeting_materials/rna_markers_list.rds")
 
-# 提取 ATAC 每个 cluster 的基因名（DFrame$`name`）
+# Extract gene names from ATAC cluster markers (column `name`)
 atac_markers <- lapply(atac_markers_raw, function(df) {
   if ("name" %in% colnames(df)) {
     as.character(df$name)
@@ -21,11 +21,13 @@ atac_markers <- lapply(atac_markers_raw, function(df) {
 })
 
 # =================== Step 2: Build Background Gene Set ===================
-all_genes <- unique(c(unlist(atac_markers), unlist(rna_markers)))  # union of all marker genes
+# Background is the union of all marker genes across ATAC and RNA clusters
+all_genes <- unique(c(unlist(atac_markers), unlist(rna_markers)))
 
 clusters_atac <- names(atac_markers)
 clusters_rna  <- names(rna_markers)
 
+# Initialize matrices to store Fisher's test results and overlap counts
 odds_matrix <- matrix(NA, nrow = length(clusters_atac), ncol = length(clusters_rna),
                       dimnames = list(clusters_atac, clusters_rna))
 pval_matrix <- matrix(NA, nrow = length(clusters_atac), ncol = length(clusters_rna),
@@ -39,12 +41,12 @@ for (i in clusters_atac) {
   for (j in clusters_rna) {
     genes_j <- rna_markers[[j]]
     
-    a <- length(intersect(genes_i, genes_j))
-    b <- length(setdiff(genes_i, genes_j))
-    c <- length(setdiff(genes_j, genes_i))
-    d <- length(setdiff(all_genes, union(genes_i, genes_j)))
-    
-    # One-tailed (right-sided) Fisher's Exact Test
+    a <- length(intersect(genes_i, genes_j))                      # shared genes
+    b <- length(setdiff(genes_i, genes_j))                        # ATAC-only
+    c <- length(setdiff(genes_j, genes_i))                        # RNA-only
+    d <- length(setdiff(all_genes, union(genes_i, genes_j)))      # neither
+
+    # One-sided Fisher’s Exact Test (alternative = "greater")
     fisher_res <- fisher.test(matrix(c(a, b, c, d), nrow = 2), alternative = "greater")
     
     odds_matrix[i, j] <- fisher_res$estimate
@@ -62,6 +64,7 @@ get_significance_stars <- function(pval) {
   else return("")
 }
 
+# Apply star annotation to each p-value
 stars_matrix <- matrix("", nrow = nrow(pval_matrix), ncol = ncol(pval_matrix),
                        dimnames = dimnames(pval_matrix))
 
@@ -72,14 +75,15 @@ for (i in rownames(pval_matrix)) {
 }
 
 # =================== Step 5: Heatmap Plot ===================
+# Log-transform odds ratio and handle infinite/undefined values
 log_odds <- log2(odds_matrix)
-log_odds[!is.finite(log_odds)] <- NA  # 处理 Inf 和 NaN
+log_odds[!is.finite(log_odds)] <- NA
 
-# 热图颜色（专业论文色盘）
+# Define heatmap color scale
 breaks <- seq(floor(min(log_odds, na.rm = TRUE)), ceiling(max(log_odds, na.rm = TRUE)), length.out = 100)
 colors <- colorRampPalette(rev(brewer.pal(n = 11, name = "RdYlBu")))(length(breaks) - 1)
 
-# 合并 overlap count 和 stars
+# Combine overlap counts and significance stars for display
 display_labels <- matrix("",
                          nrow = nrow(log_odds),
                          ncol = ncol(log_odds),

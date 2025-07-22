@@ -1,9 +1,11 @@
+# Load required libraries
 library(ArchR)
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(ggplot2)
 library(enrichplot)
 
+# Define a function to detach all non-base R packages
 detach_all_libs <- function() {
   loaded_pkgs <- setdiff(
     grep("^package:", search(), value = TRUE),
@@ -15,40 +17,40 @@ detach_all_libs <- function() {
   message("All non-base packages detached.")
 }
 
-
+# Load marker gene score and marker list objects
 markersGS <- readRDS("brain.microglia.filter/markersGS_7.2.rds")
 markerList <- readRDS("brain.microglia.filter/markerList_7.10.rds")
 
-# 所有基因名转为大写
+# Convert all gene names to uppercase
 markerList <- lapply(markerList, function(df) {
   df$name <- toupper(df$name)
   df
 })
 
-# 创建结果保存目录
+# Create a directory to save results
 dir.create("PEA_7.11/Results", recursive = TRUE, showWarnings = FALSE)
 
-# 使用 MarkerGS 结果中的所有基因作为背景集
+# Use all genes from the markerGS object as the background gene set
 background_genes <- rowData(markersGS)$name
 background_genes <- toupper(background_genes)
 
-# 转换为 ENTREZID
+# Convert SYMBOL to ENTREZID
 background_entrez <- bitr(background_genes,
                           fromType = "SYMBOL",
                           toType = "ENTREZID",
                           OrgDb = org.Hs.eg.db)
 
-# 可选：输出无法映射的基因数
+# Optional: report the number of unmapped genes
 mapped_genes <- background_entrez$SYMBOL
 unmapped_genes <- setdiff(background_genes, mapped_genes)
 cat("Unmapped background genes:", length(unmapped_genes), "\n")
 
-# 2️⃣ 遍历每个 cluster 做 GO 富集分析
+# Perform GO enrichment analysis for each cluster
 for (cluster in names(markerList)) {
   
   cat("\nProcessing cluster:", cluster, "\n")
   
-  # 获取 top 100 marker gene 名称
+  # Get top 100 marker gene names
   top_genes <- head(markerList[[cluster]]$name, 100)
   
   if (length(top_genes) == 0 || all(is.na(top_genes))) {
@@ -56,7 +58,7 @@ for (cluster in names(markerList)) {
     next
   }
   
-  # SYMBOL to ENTREZID
+  # Convert SYMBOL to ENTREZID
   gene_entrez <- bitr(top_genes,
                       fromType = "SYMBOL",
                       toType = "ENTREZID",
@@ -67,7 +69,7 @@ for (cluster in names(markerList)) {
     next
   }
   
-  # GO BP enrichment analysis
+  # Perform GO Biological Process enrichment analysis
   ego <- enrichGO(
     gene = gene_entrez$ENTREZID,
     universe = background_entrez$ENTREZID,
@@ -80,10 +82,10 @@ for (cluster in names(markerList)) {
     readable = TRUE
   )
   
-  # 简化冗余 GO term
+  # Simplify redundant GO terms
   ego_simplified <- simplify(ego, cutoff = 0.7, by = "p.adjust", select_fun = min)
   
-  # 画图逻辑，简化后没结果则用原始结果
+  # Plot results; if simplification yields nothing, use original
   if (!is.null(ego_simplified) && nrow(ego_simplified) > 0) {
     plot_obj <- dotplot(ego_simplified, showCategory = 20) + 
       ggtitle(paste("Cluster", cluster, "- GO BP"))
@@ -95,10 +97,10 @@ for (cluster in names(markerList)) {
     next
   }
   
-  # 保存图片
+  # Save the plot to file
   ggsave(paste0("PEA_7.11/Results/", cluster, "_GO_BP_dotplot.png"), 
          plot = plot_obj, width = 10, height = 8)
   
-  # 清理变量，防止污染
+  # Clean up variables to avoid contamination
   rm(ego, ego_simplified, gene_entrez, plot_obj)
 }

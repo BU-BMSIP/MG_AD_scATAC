@@ -24,18 +24,24 @@ library(ggplot2)
 # ===== 1. Load Seurat object =====
 seurat_obj <- readRDS("/projectnb/cepinet/data/scRNA/cell-2023-Sun/ROSMAP.Microglia.6regions.seurat.harmony.selected.deidentified.rds")
 
-seurat_subset_non <- subset(seurat_obj, subset = ADdiag3types == "nonAD")
-seurat_subset_ear <- subset(seurat_obj, subset = ADdiag3types == "earlyAD")
-seurat_subset_lat <- subset(seurat_obj, subset = ADdiag3types == "lateAD")
+colnames(seurat_obj@meta.data)
 
-# *Save Seurat subset object
-saveRDS(seurat_subset_non, file = "seurat_subset_nonAD.rds")
-saveRDS(seurat_subset_ear, file = "seurat_subset_earlyAD.rds")
-saveRDS(seurat_subset_lat, file = "seurat_subset_lateAD.rds")
+p1 = DimPlot ( seurat_obj, group.by = "seurat_clusters", label = T )
+ggsave ( "1.UMAP_seurat_clusters.pdf", plot = p1, width = 6.5, height =5 )
+
+#-------------------------------------------------------------------------------------------------------
+seurat_subset_non <- readRDS("/projectnb/cepinet/users/vhe/Na_Cell_2023_MG/seurat_subset_nonAD.rds")
+seurat_subset_ear <- readRDS("/projectnb/cepinet/users/vhe/Na_Cell_2023_MG/seurat_subset_earlyAD.rds")
+seurat_subset_lat <- readRDS("/projectnb/cepinet/users/vhe/Na_Cell_2023_MG/seurat_subset_lateAD.rds")
+
+colnames(seurat_subset_non@meta.data)
+
+p1 = DimPlot ( seurat_subset_non, group.by = "seurat_clusters", label = T )
+ggsave ( "1.UMAP_seurat_clusters.pdf", plot = p1, width = 6.5, height =5 )
 
 # ===== 2. Construct Monocle3 CellDataSet object =====
-counts <- GetAssayData(seurat_subset_ear, assay = "RNA", slot = "counts")
-cell_metadata <- seurat_subset_ear@meta.data
+counts <- GetAssayData(seurat_subset_non, assay = "RNA", slot = "counts")
+cell_metadata <- seurat_subset_non@meta.data
 gene_metadata <- data.frame(gene_short_name = rownames(counts), row.names = rownames(counts))
 
 cds <- new_cell_data_set(
@@ -45,40 +51,47 @@ cds <- new_cell_data_set(
 )
 
 # ===== 3. Preprocess and use Seurat's UMAP embeddings =====
-cds <- preprocess_cds(cds, num_dim = 50)
+cds <- preprocess_cds(cds, method = 'PCA', num_dim = 50)
+
+cds <- reduce_dimension(cds, reduction_method = "UMAP", preprocess_method = 'PCA')
+
+p1 <- plot_cells(cds, reduction_method = "UMAP", color_cells_by = "seurat_clusters", show_trajectory_graph = FALSE) + ggtitle('cds.umap')
 
 # Use Seurat UMAP embeddings
-umap_embeddings <- seurat_subset_ear@reductions$umap@cell.embeddings
-umap_embeddings <- umap_embeddings[colnames(cds), ]
-reducedDims(cds)$UMAP <- umap_embeddings
+#umap_embeddings <- seurat_obj@reductions$umap@cell.embeddings
+#umap_embeddings <- umap_embeddings[colnames(cds), ]
+#reducedDims(cds)$UMAP <- umap_embeddings
 
-# ===== 4. Use Seurat clustering =====
-cds@clusters$UMAP$clusters <- as.character(seurat_obj@meta.data$seurat_clusters)
+#将seurat对象的UMAP导入
+int.embed <- Embeddings(seurat_subset_non, reduction = "umap")
+#排序
+int.embed <- int.embed [rownames(cds@int_colData$reducedDims$UMAP),]
+#导入
+cds@int_colData$reducedDims$UMAP <- int.embed
+#画图
+p2 <- plot_cells(cds, reduction_method = "UMAP", color_cells_by = "seurat_clusters", show_trajectory_graph = FALSE) + ggtitle('seurat.umap')
+p =p1|p2
+ggsave("2.Reduction_Compare.pdf",plot = p, width = 10, height = 5)
 
-# ===== 5. Build cell clusters graph =====
+
+# ===== 4. Use Seurat clustering (optional) =====
+#cds@clusters$UMAP$clusters <- as.character(seurat_obj@meta.data$seurat_clusters)
+
+# ===== 5. Build cell clusters graph (required step) =====
 cds <- cluster_cells(cds, reduction_method = "UMAP")
 
+p1 <- plot_cells(cds, color_cells_by = "partition", show_trajectory_graph = FALSE) + ggtitle("partition")
+ggsave("3.cluster_Partition.pdf",plot = p1, width = 6, height = 5)
+
 # ===== 6. Learn trajectory graph =====
-cds <- learn_graph(cds)
+#cds <- learn_graph(cds)
+cds <- learn_graph(cds, learn_graph_control = list(euclidean_distance_ratio =0.8))
+
+p = plot_cells(cds, color_cells_by = "partition", label_groups_by_cluster = FALSE, label_leaves = FALSE, label_branch_points = FALSE)
+ggsave("4.Trajectory.pdf", plot = p, width = 6, height = 5)
 
 # ===== 7. Define root cluster and order cells by pseudotime =====
-get_earliest_principal_node <- function(cds, cluster){
-  cell_ids <- colnames(cds)[cds@clusters$UMAP$clusters == cluster]
-  closest_vertex <- cds@principal_graph_aux$UMAP$pr_graph_cell_proj_closest_vertex
-  closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
-  tab <- table(closest_vertex[cell_ids, ])
-  principal_node <- names(tab)[which.max(tab)]
-  return(principal_node)
-}
+cds <- order_cells(cds)
 
-cds <- order_cells(cds, root_pr_nodes = get_earliest_principal_node(cds, cluster = "0"))
-
-# ===== 8. Visualize pseudotime =====
-p <- plot_cells(cds,
-                color_cells_by = "pseudotime",
-                label_groups_by_cluster = TRUE,
-                label_leaves = TRUE,
-                label_branch_points = TRUE)
-
-# Save the gene expression plot
-ggsave("pseudotime_ear.png", plot = p, width = 10, height = 8, dpi = 300)
+p = plot_cells(cds, color_cells_by = "pseudotime", label_cell_groups = FALSE, label_leaves = FALSE, label_branch_points = FALSE)
+ggsave("5.Trajectory_Pseudotime.pdf", plot = p, width = 8, height = 6)

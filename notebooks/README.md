@@ -2,7 +2,6 @@
 
 ---
 title: "Trajectory Analysis"
-output: html_notebook
 ---
 
 ```{r}

@@ -1,6 +1,6 @@
 # Microglial State Transition Integration Pipeline
 
-A pipeline for integrating snATAC-seq and snRNA-seq data to uncover regulatory mechanisms underlying microglial state transitions in Alzheimer’s disease.
+Understanding the Epigenomic Landscape Underlying Microglial State Transitions: A pipeline for integrating snATAC-seq and snRNA-seq data to uncover regulatory mechanisms underlying microglial state transitions in Alzheimer’s disease.
 
 ## Project Overview
 
